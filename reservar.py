@@ -102,31 +102,45 @@ def do_booking(token: str, target_date: str):
 def main() -> None:
     now = datetime.now(MADRID)
     target_date_obj = now + timedelta(days=8)
-
-   
-
     target_date_str = target_date_obj.strftime("%Y-%m-%d")
-    log("Iniciando sesion en Nubapp...")
-    token = do_login()
-    log("Login OK. Intentando reservar la pista...")
 
-    last_error = None
-    for attempt in range(1, 6):
+    log(f"Fecha objetivo: {target_date_str}")
+    log("Iniciando sesion en Nubapp...")
+
+    token = do_login()
+    log("Login OK.")
+
+    # Intentar desde las 07:59:00 hasta las 08:01:00
+    start_time = now.replace(hour=7, minute=59, second=0, microsecond=0)
+    deadline = now.replace(hour=8, minute=1, second=0, microsecond=0)
+
+    # Si el script se ejecuta antes de las 07:59, esperamos.
+    if now < start_time:
+        seconds_to_wait = (start_time - now).total_seconds()
+        log(f"Esperando hasta las 07:59:00 ({seconds_to_wait:.1f} segundos)...")
+        time.sleep(seconds_to_wait)
+
+    attempt = 0
+
+    while datetime.now(MADRID) <= deadline:
+        attempt += 1
+
         try:
             status, body = do_booking(token, target_date_str)
+
             log(f"Intento {attempt}: status={status} respuesta={body}")
+
             if status == 200:
                 log("Peticion aceptada por el servidor. Revisa la app/web para confirmar la reserva.")
                 return
-            last_error = body
-        except Exception as exc:  # noqa: BLE001
-            last_error = str(exc)
+
+        except Exception as exc:
             log(f"Intento {attempt} fallo: {exc}")
-        time.sleep(1.5)
 
-    log(f"No se pudo completar la reserva tras varios intentos. Ultimo error: {last_error}")
+        time.sleep(1)
+
+    log("Se alcanzo la hora limite de las 08:01 sin completar la reserva.")
     sys.exit(1)
-
 
 if __name__ == "__main__":
     main()
