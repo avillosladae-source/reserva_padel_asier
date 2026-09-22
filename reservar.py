@@ -111,7 +111,7 @@ def main() -> None:
         log(f"Fuera de ventana horaria (faltan {wait_seconds:.0f}s para las 08:00). Saliendo sin hacer nada.")
         return
 
-    target_date_obj = now + timedelta(days=7)
+    target_date_obj = now + timedelta(days=1)
     target_weekday_name = WEEKDAYS[target_date_obj.weekday()]
     if target_weekday_name != TARGET_WEEKDAY:
         log(f"Hoy no toca reservar. Objetivo configurado: {TARGET_WEEKDAY}. "
