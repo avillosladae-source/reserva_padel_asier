@@ -101,7 +101,7 @@ def do_booking(token: str, target_date: str):
 
 def main() -> None:
     now = datetime.now(MADRID)
-    target_date_obj = now + timedelta(days=1)
+    target_date_obj = now + timedelta(days=8)
 
    
 
