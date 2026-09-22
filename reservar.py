@@ -101,26 +101,9 @@ def do_booking(token: str, target_date: str):
 
 def main() -> None:
     now = datetime.now(MADRID)
-    target_today_8am = now.replace(hour=8, minute=0, second=0, microsecond=0)
-    wait_seconds = (target_today_8am - now).total_seconds()
-
-    # Se lanzan dos horarios de disparo (uno para invierno, otro para verano)
-    # porque GitHub Actions usa UTC y Espana cambia de huso horario.
-    # Si esta ejecucion no esta cerca de las 08:00 locales, es la que "no toca": salimos.
-    if wait_seconds > 20 * 60 or wait_seconds < -5 * 60:
-        log(f"Fuera de ventana horaria (faltan {wait_seconds:.0f}s para las 08:00). Saliendo sin hacer nada.")
-        return
-
     target_date_obj = now + timedelta(days=1)
-    target_weekday_name = WEEKDAYS[target_date_obj.weekday()]
-    if target_weekday_name != TARGET_WEEKDAY:
-        log(f"Hoy no toca reservar. Objetivo configurado: {TARGET_WEEKDAY}. "
-            f"Dentro de 7 dias cae en: {target_weekday_name}. Saliendo.")
-        return
 
-    if wait_seconds > 0:
-        log(f"Esperando {wait_seconds:.1f}s hasta las 08:00:00 hora Madrid...")
-        time.sleep(wait_seconds)
+   
 
     target_date_str = target_date_obj.strftime("%Y-%m-%d")
     log("Iniciando sesion en Nubapp...")
