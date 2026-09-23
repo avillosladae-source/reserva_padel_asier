@@ -101,44 +101,94 @@ def do_booking(token: str, target_date: str):
 
 def main() -> None:
     now = datetime.now(MADRID)
-  
+
+    # Fecha objetivo: dentro de 8 días
     target_date_obj = now + timedelta(days=8)
     target_date_str = target_date_obj.strftime("%Y-%m-%d")
 
     log(f"Fecha objetivo: {target_date_str}")
-    log("Iniciando sesion en Nubapp...")
 
+    # Tiempos clave (Madrid)
+    open_time = now.replace(hour=10, minute=0, second=0, microsecond=0)
+    start_prepare = now.replace(hour=9, minute=59, second=40, microsecond=0)
+    deadline = now.replace(hour=10, minute=1, second=0, microsecond=0)
+
+    # Esperar hasta la zona de preparación
+    now = datetime.now(MADRID)
+    if now < start_prepare:
+        seconds_to_wait = (start_prepare - now).total_seconds()
+        log(f"Esperando hasta las 07:59:40 ({seconds_to_wait:.3f}s)...")
+        time.sleep(seconds_to_wait)
+
+    # Login cerca de las 08:00 (pero con margen)
+    log("Iniciando sesion en Nubapp...")
     token = do_login()
     log("Login OK.")
 
-    # Intentar desde las 07:59:00 hasta las 08:01:00
-    start_time = now.replace(hour=9, minute=50, second=0, microsecond=0)
-    deadline = now.replace(hour=9, minute=51, second=0, microsecond=0)
+    # Espera fina hasta 08:00:00.000
+    while True:
+        now = datetime.now(MADRID)
+        remaining = (open_time - now).total_seconds()
+        if remaining <= 0:
+            break
+        time.sleep(0.2 if remaining > 0.5 else 0.01)
 
-    # Si el script se ejecuta antes de las 07:59, esperamos.
-    if now < start_time:
-        seconds_to_wait = (start_time - now).total_seconds()
-        log(f"Esperando hasta las 09:15:00 ({seconds_to_wait:.1f} segundos)...")
-        time.sleep(seconds_to_wait)
+    log("Arranca rafaga de intentos (08:00)...")
 
     attempt = 0
 
-    while datetime.now(MADRID) <= deadline:
-        attempt += 1
+    # Rafaga agresiva: 3 segundos
+    burst_end = open_time + timedelta(seconds=3)
+    burst_sleep = 0.08  # 80 ms
 
+    while datetime.now(MADRID) <= burst_end:
+        attempt += 1
         try:
             status, body = do_booking(token, target_date_str)
+            log(f"BURST intento {attempt}: status={status} respuesta={body}")
 
+            if status == 200:
+                log("HTTP 200 recibido. Revisa respuesta/app para confirmar la reserva.")
+                return
+
+            if status in (401, 403):
+                log("Auth no valida (401/403). Re-logueando...")
+                token = do_login()
+                log("Re-login OK.")
+
+        except Exception as exc:
+            log(f"BURST intento {attempt} fallo: {exc}")
+
+        time.sleep(burst_sleep)
+
+    # Seguimiento hasta 08:01
+    log("Fin rafaga. Continuo con intentos moderados hasta 08:01...")
+
+    normal_sleep = 0.25  # 250 ms
+    while datetime.now(MADRID) <= deadline:
+        attempt += 1
+        try:
+            status, body = do_booking(token, target_date_str)
             log(f"Intento {attempt}: status={status} respuesta={body}")
 
             if status == 200:
-                log("Peticion aceptada por el servidor. Revisa la app/web para confirmar la reserva.")
+                log("HTTP 200 recibido. Revisa respuesta/app para confirmar la reserva.")
                 return
+
+            if status in (401, 403):
+                log("Auth no valida (401/403). Re-logueando...")
+                token = do_login()
+                log("Re-login OK.")
+
+            if status == 429:
+                log("Rate limit (429). Esperando 1s...")
+                time.sleep(1.0)
+                continue
 
         except Exception as exc:
             log(f"Intento {attempt} fallo: {exc}")
 
-        time.sleep(1)
+        time.sleep(normal_sleep)
 
     log("Se alcanzo la hora limite de las 08:01 sin completar la reserva.")
     sys.exit(1)
