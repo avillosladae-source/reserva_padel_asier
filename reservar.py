@@ -118,7 +118,7 @@ def main() -> None:
     # Si el script se ejecuta antes de las 07:59, esperamos.
     if now < start_time:
         seconds_to_wait = (start_time - now).total_seconds()
-        log(f"Esperando hasta las 07:59:00 ({seconds_to_wait:.1f} segundos)...")
+        log(f"Esperando hasta las 09:15:00 ({seconds_to_wait:.1f} segundos)...")
         time.sleep(seconds_to_wait)
 
     attempt = 0
