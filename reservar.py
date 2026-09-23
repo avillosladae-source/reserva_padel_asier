@@ -109,9 +109,9 @@ def main() -> None:
     log(f"Fecha objetivo: {target_date_str}")
 
     # Tiempos clave (Madrid)
-    open_time = now.replace(hour=10, minute=08, second=0, microsecond=0)
-    start_prepare = now.replace(hour=10, minute=07, second=40, microsecond=0)
-    deadline = now.replace(hour=10, minute=09, second=0, microsecond=0)
+    open_time = now.replace(hour=10, minute=10, second=0, microsecond=0)
+    start_prepare = now.replace(hour=10, minute=9, second=40, microsecond=0)
+    deadline = now.replace(hour=10, minute=11, second=0, microsecond=0)
 
     # Esperar hasta la zona de preparación
     now = datetime.now(MADRID)
