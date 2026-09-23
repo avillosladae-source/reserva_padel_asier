@@ -32,8 +32,8 @@ jobs:
           NUBAPP_ID_USER: ${{ secrets.NUBAPP_ID_USER }}
           NUBAPP_ID_APPLICATION: '94168645'
           TARGET_WEEKDAY: 'thursday'   # dia de la semana objetivo: monday/tuesday/wednesday/thursday/friday/saturday/sunday
-          FROM_TIME: '11:30'           # hora de inicio de la pista
-          TO_TIME: '13:00'             # hora de fin de la pista
+          FROM_TIME: '17:30'           # hora de inicio de la pista
+          TO_TIME: '19:00'             # hora de fin de la pista
           ID_CATEGORY: '3967'          # categoria de pista (la capturada)
           ID_FACILITY: '10999'         # pista concreta (la capturada), 10997 pista 1, 10998 pista 2, 10999 pista 3, 11000 pista 4, 11001 pista 5, 11002 pista 6 
           BOOKED_ON: '3'
