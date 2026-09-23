@@ -111,7 +111,7 @@ def main() -> None:
     # Tiempos clave (Madrid)
     open_time = now.replace(hour=8, minute=0, second=0, microsecond=0)
     start_prepare = now.replace(hour=7, minute=59, second=40, microsecond=0)
-    deadline = now.replace(hour=9, minute=1, second=0, microsecond=0)
+    deadline = now.replace(hour=8, minute=1, second=0, microsecond=0)
 
     # Esperar hasta la zona de preparación
     now = datetime.now(MADRID)
