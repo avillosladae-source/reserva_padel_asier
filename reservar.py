@@ -112,8 +112,8 @@ def main() -> None:
     log("Login OK.")
 
     # Intentar desde las 07:59:00 hasta las 08:01:00
-    start_time = now.replace(hour=9, minute=12, second=0, microsecond=0)
-    deadline = now.replace(hour=9, minute=14, second=0, microsecond=0)
+    start_time = now.replace(hour=9, minute=32, second=0, microsecond=0)
+    deadline = now.replace(hour=9, minute=33, second=0, microsecond=0)
 
     # Si el script se ejecuta antes de las 07:59, esperamos.
     if now < start_time:
