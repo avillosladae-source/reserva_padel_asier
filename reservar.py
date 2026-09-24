@@ -1,27 +1,3 @@
-"""
-Script de reserva automatica de pista de padel (Kirol Zizur / Resasports / Nubapp).
-
-Cada dia, a las 08:00 hora de Madrid, el plazo se abre para el dia que cae
-7 dias despues. Como dentro de 7 dias cae siempre en el MISMO dia de la
-semana que hoy, este script solo actua si hoy es el dia de la semana que
-tu configures (TARGET_WEEKDAY). Si no coincide, no hace nada.
-
-Variables de entorno necesarias (se configuran como "Secrets" en GitHub):
-  NUBAPP_USERNAME       -> tu usuario de Kirol Zizur
-  NUBAPP_PASSWORD       -> tu contrasena
-  NUBAPP_ID_USER        -> tu id de usuario numerico (lo sacamos del token: 3852292)
-
-Variables de configuracion (puedes dejarlas en el propio workflow, no son secretas):
-  NUBAPP_ID_APPLICATION -> 94168645
-  TARGET_WEEKDAY         -> dia de la semana en ingles y minuscula: monday, tuesday,
-                             wednesday, thursday, friday, saturday, sunday
-  FROM_TIME               -> hora de inicio de la pista, formato HH:MM (ej: 20:00)
-  TO_TIME                 -> hora de fin de la pista, formato HH:MM (ej: 21:00)
-  ID_CATEGORY              -> id de categoria de pista (ej: 3967)
-  ID_FACILITY              -> id de la pista concreta (ej: 10997)
-  BOOKED_ON                -> normalmente "3", tal y como lo capturamos
-"""
-
 import os
 import sys
 import time
@@ -48,7 +24,19 @@ ID_CATEGORY = os.environ.get("ID_CATEGORY", "3967")
 ID_FACILITY = os.environ.get("ID_FACILITY", "10997")
 BOOKED_ON = os.environ.get("BOOKED_ON", "3")
 
-WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+# Hora de apertura (para pruebas: "09:30"; producción: "08:00")
+OPEN_HHMM = os.environ.get("OPEN_HHMM", "08:00")
+
+# Cuánto antes arrancar la ráfaga (en segundos). Ej: 0.30 = 300ms antes.
+EARLY_SECONDS = float(os.environ.get("EARLY_SECONDS", "0.30"))
+
+# Ventanas
+BURST_SECONDS = float(os.environ.get("BURST_SECONDS", "3.0"))      # ráfaga agresiva
+DEADLINE_SECONDS = float(os.environ.get("DEADLINE_SECONDS", "60")) # seguir intentando hasta +60s
+
+# Sleeps durante intentos
+BURST_SLEEP = float(os.environ.get("BURST_SLEEP", "0.05"))   # 50ms
+NORMAL_SLEEP = float(os.environ.get("NORMAL_SLEEP", "0.25")) # 250ms
 
 
 def log(msg: str) -> None:
@@ -61,14 +49,17 @@ def do_login() -> str:
         "password": PASSWORD,
         "id_application": ID_APPLICATION,
     }).encode()
+
     req = urllib.request.Request(LOGIN_URL, data=data, method="POST")
     req.add_header("content-type", "application/x-www-form-urlencoded;charset=UTF-8")
     req.add_header("accept", "application/json, text/plain, */*")
     req.add_header("nubapp-origin", "user_apps")
     req.add_header("origin", "https://centro.resasports.com")
     req.add_header("referer", "https://centro.resasports.com/")
+
     with urllib.request.urlopen(req, timeout=15) as resp:
         body = json.loads(resp.read().decode())
+
     return body["token"]
 
 
@@ -87,6 +78,7 @@ def do_booking(token: str, target_date: str):
         "users_on_booking[0][id_user]": ID_USER,
         "users_on_booking[0][n_guests]": "0",
     }
+
     encoded = urllib.parse.urlencode(data).encode()
     req = urllib.request.Request(BOOKING_URL, data=encoded, method="POST")
     req.add_header("content-type", "application/x-www-form-urlencoded")
@@ -95,52 +87,84 @@ def do_booking(token: str, target_date: str):
     req.add_header("nubapp-origin", "user_apps")
     req.add_header("origin", "https://centro.resasports.com")
     req.add_header("referer", "https://centro.resasports.com/")
+
     with urllib.request.urlopen(req, timeout=15) as resp:
         return resp.status, resp.read().decode()
+
+
+def parse_open_time(now: datetime) -> datetime:
+    hh, mm = OPEN_HHMM.split(":")
+    return now.replace(hour=int(hh), minute=int(mm), second=0, microsecond=0)
+
+
+def wait_until(t: datetime) -> None:
+    """
+    Espera con buena precisión:
+    - duerme “grueso” hasta 200ms antes
+    - duerme fino hasta 20ms antes
+    - últimos 20ms busy-wait para no pasarse por el scheduler del SO
+    """
+    # Espera gruesa
+    while True:
+        remaining = (t - datetime.now(MADRID)).total_seconds()
+        if remaining <= 0.2:
+            break
+        time.sleep(0.05)
+
+    # Espera fina
+    while True:
+        remaining = (t - datetime.now(MADRID)).total_seconds()
+        if remaining <= 0.02:
+            break
+        time.sleep(0.001)
+
+    # Último tramo: sin sleep
+    while datetime.now(MADRID) < t:
+        pass
 
 
 def main() -> None:
     now = datetime.now(MADRID)
 
-    # Fecha objetivo: dentro de 8 días
+    # Fecha objetivo (OJO: en tu texto decías 7 días; aquí está en 8 como tu script original)
     target_date_obj = now + timedelta(days=8)
     target_date_str = target_date_obj.strftime("%Y-%m-%d")
-
     log(f"Fecha objetivo: {target_date_str}")
 
-    # Tiempos clave (Madrid)
-    open_time = now.replace(hour=9, minute=30, second=0, microsecond=0)
-    start_prepare = now.replace(hour=9, minute=29, second=40, microsecond=0)
-    deadline = now.replace(hour=9, minute=31, second=0, microsecond=0)
+    open_time = parse_open_time(now)
 
-    # Esperar hasta la zona de preparación
+    # Ventanas temporales
+    burst_start = open_time - timedelta(seconds=EARLY_SECONDS)
+    burst_end = open_time + timedelta(seconds=BURST_SECONDS)
+    deadline = open_time + timedelta(seconds=DEADLINE_SECONDS)
+
+    log(f"Apertura configurada: {OPEN_HHMM}:00")
+    log(f"Ráfaga empieza en: {burst_start.time()} (EARLY_SECONDS={EARLY_SECONDS})")
+    log(f"Ráfaga termina en: {burst_end.time()} (BURST_SECONDS={BURST_SECONDS})")
+    log(f"Deadline en:       {deadline.time()} (DEADLINE_SECONDS={DEADLINE_SECONDS})")
+
+    # Si llegas demasiado tarde, dilo claro
     now = datetime.now(MADRID)
-    if now < start_prepare:
-        seconds_to_wait = (start_prepare - now).total_seconds()
-        log(f"Esperando hasta las 07:59:40 ({seconds_to_wait:.3f}s)...")
-        time.sleep(seconds_to_wait)
+    if now > deadline:
+        log("Llegué tarde (now > deadline). GitHub/runner arrancó tarde o el script se lanzó fuera de ventana.")
+        sys.exit(2)
 
-    # Login cerca de las 08:00 (pero con margen)
+    # Login antes (si quieres aún más margen, puedes mover el workflow más temprano)
     log("Iniciando sesion en Nubapp...")
     token = do_login()
     log("Login OK.")
 
-    # Espera fina hasta 08:00:00.000
-    while True:
-        now = datetime.now(MADRID)
-        remaining = (open_time - now).total_seconds()
-        if remaining <= 0:
-            break
-        time.sleep(0.2 if remaining > 0.5 else 0.01)
+    # Esperar hasta burst_start (un poco antes de la apertura)
+    now = datetime.now(MADRID)
+    if now < burst_start:
+        log(f"Esperando hasta BURST_START ({burst_start.isoformat()})...")
+        wait_until(burst_start)
 
-    log("Arranca rafaga de intentos (08:00)...")
+    log(f"Arranca ráfaga de intentos (EARLY {EARLY_SECONDS}s antes de {OPEN_HHMM})...")
 
     attempt = 0
 
-    # Rafaga agresiva: 3 segundos
-    burst_end = open_time + timedelta(seconds=3)
-    burst_sleep = 0.08  # 80 ms
-
+    # Ráfaga agresiva (incluye el cruce por open_time)
     while datetime.now(MADRID) <= burst_end:
         attempt += 1
         try:
@@ -156,15 +180,19 @@ def main() -> None:
                 token = do_login()
                 log("Re-login OK.")
 
+            if status == 429:
+                log("Rate limit (429) en ráfaga. Durmiendo 200ms...")
+                time.sleep(0.2)
+                continue
+
         except Exception as exc:
             log(f"BURST intento {attempt} fallo: {exc}")
 
-        time.sleep(burst_sleep)
+        time.sleep(BURST_SLEEP)
 
-    # Seguimiento hasta 08:01
-    log("Fin rafaga. Continuo con intentos moderados hasta 08:01...")
+    # Seguimiento hasta deadline
+    log("Fin ráfaga. Continúo con intentos moderados hasta deadline...")
 
-    normal_sleep = 0.25  # 250 ms
     while datetime.now(MADRID) <= deadline:
         attempt += 1
         try:
@@ -188,10 +216,11 @@ def main() -> None:
         except Exception as exc:
             log(f"Intento {attempt} fallo: {exc}")
 
-        time.sleep(normal_sleep)
+        time.sleep(NORMAL_SLEEP)
 
-    log("Se alcanzo la hora limite de las 08:01 sin completar la reserva.")
+    log("Se alcanzó el deadline sin completar la reserva.")
     sys.exit(1)
+
 
 if __name__ == "__main__":
     main()
