@@ -1,12 +1,12 @@
 name: Reserva automatica pista padel
 
 on:
-  schedule:
+  #schedule:
     # 05:50 UTC -> ~07:50 hora Madrid en horario de VERANO (CEST, UTC+2)
-    - cron: '00 5 * * *'
+    - #cron: '00 5 * * *'
     # 06:50 UTC -> ~07:50 hora Madrid en horario de INVIERNO (CET, UTC+1)
-    - cron: '00 6 * * *'
-  workflow_dispatch: {}   # permite lanzarlo a mano desde la pestana "Actions" para probar
+    - #cron: '00 6 * * *'
+  #workflow_dispatch: {}   # permite lanzarlo a mano desde la pestana "Actions" para probar
 #0 o 7 = domingo
 #1 = lunes
 #2 = martes
