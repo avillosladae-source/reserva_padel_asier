@@ -3,7 +3,7 @@ name: Reserva automatica pista padel
 on:
   schedule:
    # 05:50 UTC -> ~07:50 hora Madrid en horario de VERANO (CEST, UTC+2)
-    - cron: '00 0 * * *'
+    - cron: '00 21 * * 3'
    # 06:50 UTC -> ~07:50 hora Madrid en horario de INVIERNO (CET, UTC+1)
     #- cron: '00 0 * * *'
   workflow_dispatch: {}   # permite lanzarlo a mano desde la pestana "Actions" para probar
@@ -39,5 +39,5 @@ jobs:
           TO_TIME: '20:30'             # hora de fin de la pista
           ID_CATEGORY: '3967'          # categoria de pista (la capturada)
           ID_FACILITY: '10999'         # pista concreta (la capturada), 10997 pista 1, 10998 pista 2, 10999 pista 3, 11000 pista 4, 11001 pista 5, 11002 pista 6 
-          BOOKED_ON: '3'
+          BOOKED_ON: '4'
         run: python reservar.py
