@@ -19,7 +19,7 @@ jobs:
   reservar:
     runs-on: ubuntu-latest
     env:
-      OPEN_HHMM: '8:00'
+      OPEN_HHMM: '23:45'
       EARLY_SECONDS: '0.30'
     steps:
       - uses: actions/checkout@v4
