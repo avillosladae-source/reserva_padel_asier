@@ -30,7 +30,7 @@ ID_CATEGORY = os.environ.get("ID_CATEGORY", "3967")
 ID_FACILITY = os.environ.get("ID_FACILITY", "10997")
 BOOKED_ON = os.environ.get("BOOKED_ON", "3")
 
-OPEN_HHMM = os.environ.get("OPEN_HHMM", "08:00")
+OPEN_HHMM = os.environ.get("OPEN_HHMM", "23:40")
 
 EARLY_SECONDS = float(
     os.environ.get("EARLY_SECONDS", "0.30")
