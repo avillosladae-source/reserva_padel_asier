@@ -271,7 +271,7 @@ def main() -> None:
     now = datetime.now(MADRID)
 
     # Se mantiene tu lógica actual de ocho días.
-    target_date_obj = now + timedelta(days=8)
+    target_date_obj = now + timedelta(days=7)
     target_date_str = target_date_obj.strftime(
         "%Y-%m-%d"
     )
